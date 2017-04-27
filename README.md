@@ -1,9 +1,9 @@
 # TeensyDataLogger
 Record data to SD card at a high sampling rate
 
-This is a high speed data logger. It acquires data and stores it on an SD
+This sketch acquires data and stores it on an SD
 card. In my tests using a Teensy 3.6 and a SanDisk Ultra 16GB SDHC micro SD
-card, I was able to sample an analog pin at 25 kHz.
+card, I was able to record an analog pin at 25 kHz.
 
 It relies on the beta version of the SdFat library written by Bill Greiman,
 which is available at https://github.com/greiman/SdFat-beta. I have tested
