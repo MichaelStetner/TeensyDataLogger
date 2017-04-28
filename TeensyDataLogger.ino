@@ -137,10 +137,16 @@ void setup() {
   // Initialize IMUs
   Wire1.begin();
   Wire1.setDefaultTimeout(10000);  // ten milliseconds
-  initMPU9250(MPU9250_ADDRESS_0);
-  initAK8963(MPU9250_ADDRESS_0);
-  initMPU9250(MPU9250_ADDRESS_1);
-  initAK8963(MPU9250_ADDRESS_1);
+  while (!(initMPU9250(MPU9250_ADDRESS_0) && initAK8963(MPU9250_ADDRESS_0) && initMPU9250(MPU9250_ADDRESS_1) && initAK8963(MPU9250_ADDRESS_1))) {
+    digitalWrite(LED_PIN, HIGH);
+    delay(200);
+    digitalWrite(LED_PIN, LOW);
+    delay(200);
+    digitalWrite(LED_PIN, HIGH);
+    delay(200);
+    digitalWrite(LED_PIN, LOW);
+    delay(1000);
+  }
   pinMode(SYNC_PIN, OUTPUT);
 
   Serial.print("Block size: ");
@@ -282,7 +288,7 @@ void acquireData(data_t* data) {
  * Checks that device responds correctly to WHO_AM_I. If it fails,
  * an error message is printed to Serial and execution stops.
  */
-void checkWho(uint8_t deviceAddr, uint8_t regAddr, uint8_t correct) {
+bool checkWho(uint8_t deviceAddr, uint8_t regAddr, uint8_t correct) {
   byte whoIAm = readByte(deviceAddr, regAddr);
   if (whoIAm != correct) {
     Serial.print("Device at address 0x");
@@ -292,22 +298,23 @@ void checkWho(uint8_t deviceAddr, uint8_t regAddr, uint8_t correct) {
     Serial.print(correct, HEX);
     Serial.print(" but recieved 0x");
     Serial.println(whoIAm, HEX);
-    blinkForever();
   }
+  return whoIAm == correct;
 }
 //-----------------------------------------------------------------------------
 /*
  * Initialize AK8963 magnetometer that is inside the MPU9250 and
  * set it up to be an I2C slave
  */
-void initAK8963(uint8_t MPU9250_ADDRESS) {
+bool initAK8963(uint8_t MPU9250_ADDRESS) {
   // Tell MPU9250 to let us talk to AK8963 directly
   writeByte(MPU9250_ADDRESS, INT_PIN_CFG, 0x02); // enable pass thru when i2c master disabled
   writeByte(MPU9250_ADDRESS, USER_CTRL, B00000000); // turn off i2c master on mpu9250
   delay(500);
 
 
-  checkWho(AK8963_ADDRESS, WHO_AM_I_AK8963, 0x48);
+  if (!checkWho(AK8963_ADDRESS, WHO_AM_I_AK8963, 0x48))
+    return false;
 
   writeByte(AK8963_ADDRESS, AK8963_CNTL, B00000010);
 
@@ -337,10 +344,12 @@ void initAK8963(uint8_t MPU9250_ADDRESS) {
 
   // Enable I2C master
   writeByte(MPU9250_ADDRESS, USER_CTRL, B00100000);
+  return true;
 }
 //-----------------------------------------------------------------------------
-void initMPU9250(uint8_t MPU9250_ADDRESS) {
-  checkWho(MPU9250_ADDRESS, WHO_AM_I_MPU9250, 0x71);
+bool initMPU9250(uint8_t MPU9250_ADDRESS) {
+  if (!checkWho(MPU9250_ADDRESS, WHO_AM_I_MPU9250, 0x71))
+    return false;
 
   // wake up device
   writeByte(MPU9250_ADDRESS, PWR_MGMT_1, 0x00); // Clear sleep mode bit (6), enable all sensors
@@ -396,6 +405,7 @@ void initMPU9250(uint8_t MPU9250_ADDRESS) {
    writeByte(MPU9250_ADDRESS, INT_PIN_CFG, 0x22);
    writeByte(MPU9250_ADDRESS, INT_ENABLE, 0x01);  // Enable data ready (bit 0) interrupt
    delay(100);
+   return true;
 }
 
 uint8_t writeByte(uint8_t address, uint8_t subAddress, uint8_t data) {
