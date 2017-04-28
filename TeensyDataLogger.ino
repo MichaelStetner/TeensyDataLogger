@@ -36,6 +36,10 @@ const int SENSOR_PIN = A0;
 // slow blink when recording has stopped.
 const int LED_PIN = 13;
 
+// Attach a button to this pin to stop recordings. Button should ground the pin when pressed.
+// When not grounded, the pin is pulled up by an internal pull-up resistor.
+const int BUTTON_PIN = 14;
+
 // 16 KiB buffer.
 const size_t BUF_DIM = 16384;
 
@@ -118,6 +122,7 @@ void setup() {
   }
 
   pinMode(LED_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   // Put all the buffers on the empty stack.
   for (int i = 0; i < BUFFER_BLOCK_COUNT; i++) {
@@ -178,7 +183,7 @@ void loop() {
     digitalWrite(LED_PIN, LOW);
   }
 
-  fileIsClosing = Serial.available();
+  fileIsClosing = Serial.available() || (digitalRead(BUTTON_PIN) == LOW);;
 }
 //-----------------------------------------------------------------------------
 void yield() {
@@ -288,12 +293,7 @@ void checkWho(uint8_t deviceAddr, uint8_t regAddr, uint8_t correct) {
     Serial.print(correct, HEX);
     Serial.print(" but recieved 0x");
     Serial.println(whoIAm, HEX);
-    while (true) {
-        digitalWrite(13, HIGH);
-        delay(800);
-        digitalWrite(13, LOW);
-        delay(800);
-    }
+    blinkForever();
   }
 }
 //-----------------------------------------------------------------------------
