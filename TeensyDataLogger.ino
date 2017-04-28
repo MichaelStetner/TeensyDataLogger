@@ -23,6 +23,10 @@
 // Pin to record
 const int SENSOR_PIN = A0;
 
+// Pin with LED, which flashes whenever data is written to card, and does a 
+// slow blink when recording has stopped.
+const int LED_PIN = 13;
+
 // 16 KiB buffer.
 const size_t BUF_DIM = 16384;
 
@@ -101,6 +105,8 @@ void setup() {
   while (!Serial) {
   }
 
+  pinMode(LED_PIN, OUTPUT);
+
   // Put all the buffers on the empty stack.
   for (int i = 0; i < BUFFER_BLOCK_COUNT; i++) {
     emptyStack[i] = &block[i - 1];
@@ -134,24 +140,23 @@ void loop() {
     if (fileIsClosing){
       file.close();
       Serial.println("File complete.");
-      while(1);
+      blinkForever();
     } else {
       yield(); // acquire data etc.
     }
   } else { // full queue not empty
     // write buffer at the tail of the full queue and return it to the top of
     // the empty stack.
+    digitalWrite(LED_PIN, HIGH);
     block_t* pBlock = fullQueue[fullTail];
     fullTail = fullTail < QUEUE_LAST ? fullTail + 1 : 0;
     if ((int)BUF_DIM != file.write(pBlock, BUF_DIM)) {
       error("write failed");
     }
     emptyStack[emptyTop++] = pBlock;
-//    Serial.print(micros());
-//    Serial.println(" write complete");
+    digitalWrite(LED_PIN, LOW);
   }
 
-  // fileIsClosing = (micros() > 500000000);
   fileIsClosing = Serial.available();
 }
 //-----------------------------------------------------------------------------
@@ -211,9 +216,6 @@ block_t* getEmptyBlock() {
   if (emptyTop > 0) { // if there is a buffer in the empty stack
     blk = emptyStack[--emptyTop];
     blk->count = 0;
-//    Serial.print(micros());
-//    Serial.print(" new block, remaining=");
-//    Serial.println(emptyTop);
   } else { // no buffers in empty stack
     error("All buffers in use");
   }
@@ -232,11 +234,20 @@ void putCurrentBlock() {
 void error(String msg) {
   Serial.print("ERROR: ");
   Serial.println(msg);
-  while(1);
+  blinkForever();
 }
 //-----------------------------------------------------------------------------
 void acquireData(data_t* data){
   data->time = micros();
   data->adc[0] = analogRead(SENSOR_PIN);
+}
+//-----------------------------------------------------------------------------
+void blinkForever() {
+  while (1) {
+    digitalWrite(LED_PIN, HIGH);
+    delay(1000);
+    digitalWrite(LED_PIN, LOW);
+    delay(1000);
+  }
 }
 
