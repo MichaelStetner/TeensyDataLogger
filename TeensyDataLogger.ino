@@ -118,8 +118,7 @@ bool justSampled = false;
 //-----------------------------------------------------------------------------
 void setup() {
   Serial.begin(9600);
-  while (!Serial) {
-  }
+  delay(1000);
 
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
