@@ -32,6 +32,10 @@
 // Pin to record
 const int SENSOR_PIN = A0;
 
+// Pin with LED, which flashes whenever data is written to card, and does a
+// slow blink when recording has stopped.
+const int LED_PIN = 13;
+
 // 16 KiB buffer.
 const size_t BUF_DIM = 16384;
 
@@ -113,6 +117,8 @@ void setup() {
   while (!Serial) {
   }
 
+  pinMode(LED_PIN, OUTPUT);
+
   // Put all the buffers on the empty stack.
   for (int i = 0; i < BUFFER_BLOCK_COUNT; i++) {
     emptyStack[i] = &block[i - 1];
@@ -155,24 +161,23 @@ void loop() {
     if (fileIsClosing) {
       file.close();
       Serial.println("File complete.");
-      while (1);
+      blinkForever();
     } else {
       yield(); // acquire data etc.
     }
   } else { // full queue not empty
     // write buffer at the tail of the full queue and return it to the top of
     // the empty stack.
+    digitalWrite(LED_PIN, HIGH);
     block_t* pBlock = fullQueue[fullTail];
     fullTail = fullTail < QUEUE_LAST ? fullTail + 1 : 0;
     if ((int)BUF_DIM != file.write(pBlock, BUF_DIM)) {
       error("write failed");
     }
     emptyStack[emptyTop++] = pBlock;
-    //    Serial.print(micros());
-    //    Serial.println(" write complete");
+    digitalWrite(LED_PIN, LOW);
   }
 
-  // fileIsClosing = (micros() > 500000000);
   fileIsClosing = Serial.available();
 }
 //-----------------------------------------------------------------------------
@@ -232,9 +237,6 @@ block_t* getEmptyBlock() {
   if (emptyTop > 0) { // if there is a buffer in the empty stack
     blk = emptyStack[--emptyTop];
     blk->count = 0;
-    //    Serial.print(micros());
-    //    Serial.print(" new block, remaining=");
-    //    Serial.println(emptyTop);
   } else { // no buffers in empty stack
     error("All buffers in use");
   }
@@ -253,7 +255,7 @@ void putCurrentBlock() {
 void error(String msg) {
   Serial.print("ERROR: ");
   Serial.println(msg);
-  while (1);
+  blinkForever();
 }
 //-----------------------------------------------------------------------------
 void acquireData(data_t* data) {
@@ -273,7 +275,7 @@ void acquireData(data_t* data) {
 }
 //-----------------------------------------------------------------------------
 /*
- * Checks that device responds correctly to WHO_AM_I. If it fails, 
+ * Checks that device responds correctly to WHO_AM_I. If it fails,
  * an error message is printed to Serial and execution stops.
  */
 void checkWho(uint8_t deviceAddr, uint8_t regAddr, uint8_t correct) {
@@ -299,15 +301,15 @@ void checkWho(uint8_t deviceAddr, uint8_t regAddr, uint8_t correct) {
  * Initialize AK8963 magnetometer that is inside the MPU9250 and
  * set it up to be an I2C slave
  */
-void initAK8963(uint8_t MPU9250_ADDRESS) {  
+void initAK8963(uint8_t MPU9250_ADDRESS) {
   // Tell MPU9250 to let us talk to AK8963 directly
   writeByte(MPU9250_ADDRESS, INT_PIN_CFG, 0x02); // enable pass thru when i2c master disabled
   writeByte(MPU9250_ADDRESS, USER_CTRL, B00000000); // turn off i2c master on mpu9250
   delay(500);
 
-  
+
   checkWho(AK8963_ADDRESS, WHO_AM_I_AK8963, 0x48);
-  
+
   writeByte(AK8963_ADDRESS, AK8963_CNTL, B00000010);
 
   // Enable I2C master functionality on MPU9250
@@ -335,12 +337,12 @@ void initAK8963(uint8_t MPU9250_ADDRESS) {
   //  3:0   I2C_MST_CLK       Number of bytes to read (seven bytes = B0111)
 
   // Enable I2C master
-  writeByte(MPU9250_ADDRESS, USER_CTRL, B00100000);  
+  writeByte(MPU9250_ADDRESS, USER_CTRL, B00100000);
 }
 //-----------------------------------------------------------------------------
 void initMPU9250(uint8_t MPU9250_ADDRESS) {
   checkWho(MPU9250_ADDRESS, WHO_AM_I_MPU9250, 0x71);
-  
+
   // wake up device
   writeByte(MPU9250_ADDRESS, PWR_MGMT_1, 0x00); // Clear sleep mode bit (6), enable all sensors
   delay(100); // Wait for all registers to reset
@@ -430,6 +432,15 @@ uint8_t readByte(uint8_t address, uint8_t subAddress) {
     return Wire1.readByte();
   } else {
     return 0;
+  }
+}
+//-----------------------------------------------------------------------------
+void blinkForever() {
+  while (1) {
+    digitalWrite(LED_PIN, HIGH);
+    delay(1000);
+    digitalWrite(LED_PIN, LOW);
+    delay(1000);
   }
 }
 
