@@ -25,6 +25,7 @@
 #define SYNC_PIN 0
 #define SYNC_RATE  50 // integer between 0 (no sync pulses) and 10000 (sync pulse on every cycle)
 #define SYNC_MICROSECONDS 30
+#define SYNC_REFRACTORY_MICROS 66666 // 1/15 of a second
 
 #define GYRO_SCALE 3 // 0=250dps, 1=500dps, 2=1000dps, 3=2000dps
 #define ACCEL_SCALE 1 // 0=2g, 1=4g, 2=8g, 3=16g
@@ -109,6 +110,7 @@ uint8_t fullTail = 0;
 
 uint32_t nextSampleMicros = 0;
 uint8_t syncNow;
+uint32_t previousSyncMicros = 0;
 unsigned long myrand;
 bool fileIsClosing = false;
 bool collectingData = false;
@@ -275,11 +277,12 @@ void acquireData(data_t* data) {
   data->adc[0] = analogRead(SENSOR_PIN);
   // Emit sync pulses at random
   myrand = random(10000);
-  syncNow = (myrand < SYNC_RATE);
+  syncNow = (myrand < SYNC_RATE) && ((micros() - previousSyncMicros) > SYNC_REFRACTORY_MICROS);
   if (syncNow) {
     digitalWrite(SYNC_PIN, HIGH);
     delayMicroseconds(SYNC_MICROSECONDS);
     digitalWrite(SYNC_PIN, LOW);
+    previousSyncMicros = micros();
   }
   data->adc[ADC_DIM - 1] = syncNow;
 }
