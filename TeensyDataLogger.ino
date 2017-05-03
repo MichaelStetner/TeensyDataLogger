@@ -22,7 +22,7 @@
 #include "Registers.h"
 #include <i2c_t3.h>
 
-#define SYNC_PIN 0
+#define SYNC_PIN 23
 #define SYNC_RATE  50 // integer between 0 (no sync pulses) and 10000 (sync pulse on every cycle)
 #define SYNC_MICROSECONDS 30
 #define SYNC_REFRACTORY_MICROS 66666 // 1/15 of a second
@@ -140,6 +140,7 @@ void setup() {
   Wire1.begin();
   Wire1.setDefaultTimeout(10000);  // ten milliseconds
   while (!(initMPU9250(MPU9250_ADDRESS_0) && initAK8963(MPU9250_ADDRESS_0) && initMPU9250(MPU9250_ADDRESS_1) && initAK8963(MPU9250_ADDRESS_1))) {
+    Wire1.resetBus();
     digitalWrite(LED_PIN, HIGH);
     delay(200);
     digitalWrite(LED_PIN, LOW);
