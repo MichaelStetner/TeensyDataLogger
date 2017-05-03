@@ -266,6 +266,7 @@ void putCurrentBlock() {
 }
 //-----------------------------------------------------------------------------
 void error(String msg) {
+  file.close();
   Serial.print("ERROR: ");
   Serial.println(msg);
   blinkForever();
