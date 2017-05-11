@@ -22,7 +22,7 @@
 #include "Registers.h"
 #include <i2c_t3.h>
 
-#define SYNC_PIN 23
+#define SYNC_PIN 17
 #define SYNC_RATE  50 // integer between 0 (no sync pulses) and 10000 (sync pulse on every cycle)
 #define SYNC_MICROSECONDS 30
 #define SYNC_REFRACTORY_MICROS 66666 // 1/15 of a second
