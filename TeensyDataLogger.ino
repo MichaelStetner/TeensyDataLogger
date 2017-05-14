@@ -114,6 +114,7 @@ uint32_t previousSyncMicros = 0;
 unsigned long myrand;
 bool fileIsClosing = false;
 bool collectingData = false;
+bool fileIsComplete = true;
 bool isSampling = false;
 bool justSampled = false;
 
@@ -125,14 +126,34 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
+  sd.begin();
+}
+
+void init() {
   // Put all the buffers on the empty stack.
   for (int i = 0; i < BUFFER_BLOCK_COUNT; i++) {
     emptyStack[i] = &block[i - 1];
   }
   emptyTop = BUFFER_BLOCK_COUNT;
 
-  sd.begin();
-  if (!file.open("TeensyDemo.bin", O_RDWR | O_CREAT)) {
+  char filename[13] = "tnsy0000.bin";
+  int fileNum = 0;
+  while (sd.exists(filename)) {
+    fileNum++;
+    if (fileNum >= 10000) {
+      Serial.print("All filenames taken. Cannot create new file.");
+      blinkForever();
+    }
+    filename[4] = fileNum / 1000 + 48;
+    filename[5] = fileNum % 1000 / 100 + 48;
+    filename[6] = fileNum % 100 / 10 + 48;
+    filename[7] = fileNum % 10 + 48;
+    Serial.println(filename);
+  }
+  
+
+  
+  if (!file.open(filename, O_RDWR | O_CREAT)) {
     error("open failed");
   }
 
@@ -164,17 +185,32 @@ void setup() {
   Serial.println(FILL_DIM);
   Serial.println("Recording. Enter any key to stop.");
   delay(100);
+  fullHead = 0;
+  fullTail = 0;
+  curBlock = 0;
+  fileIsClosing = false;
+  fileIsComplete = false;
   collectingData = true;
+  justSampled = false;
+  isSampling = false;
   nextSampleMicros = micros() + sampleIntervalMicros;
 }
 //-----------------------------------------------------------------------------
 void loop() {
+  init();
+  while (!fileIsComplete) {
+    writeBuffers();
+    fileIsClosing = fileIsClosing || Serial.available() || (digitalRead(BUTTON_PIN) == LOW);
+  }
+}
+//-----------------------------------------------------------------------------
+void writeBuffers() {
   // Write the block at the tail of the full queue to the SD card
   if (fullHead == fullTail) { // full queue is empty
     if (fileIsClosing) {
       file.close();
       Serial.println("File complete.");
-      blinkForever();
+      fileIsComplete = true;
     } else {
       yield(); // acquire data etc.
     }
@@ -190,8 +226,6 @@ void loop() {
     emptyStack[emptyTop++] = pBlock;
     digitalWrite(LED_PIN, LOW);
   }
-
-  fileIsClosing = Serial.available() || (digitalRead(BUTTON_PIN) == LOW);;
 }
 //-----------------------------------------------------------------------------
 void yield() {
@@ -224,7 +258,8 @@ void yield() {
   // If it's time, record one data sample.
   if (micros() >= nextSampleMicros) {
     if (justSampled) {
-      error("rate too fast");
+      Serial.print("rate too fast");
+      fileIsClosing = true;
     }
     acquireData(&curBlock->data[curBlock->count++]);
     nextSampleMicros += sampleIntervalMicros;
@@ -472,3 +507,4 @@ uint8_t readBytes(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * 
   }
   return 0;
 }
+
