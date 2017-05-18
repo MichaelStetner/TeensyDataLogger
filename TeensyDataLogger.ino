@@ -169,26 +169,21 @@ void init() {
   }
 
   // Initialize IMUs
-  int ngood = 0;
-  while (true) {
   while (!(initMPU9250(MPU9250_ADDRESS_0) && initAK8963(MPU9250_ADDRESS_0) && initMPU9250(MPU9250_ADDRESS_1) && initAK8963(MPU9250_ADDRESS_1))) {
-//    Serial.print("Error code is ");
-//    Serial.println(Wire1.getError());
-//    Serial.print("Status is ");
-//    Serial.println(Wire1.status());
+    Serial.print("Error code is ");
+    Serial.println(Wire1.getError());
+    Serial.print("Status is ");
+    Serial.println(Wire1.status());
     Wire1.resetBus();
-    ngood = 0;
-//    digitalWrite(LED_PIN, HIGH);
-//    delay(200);
-//    digitalWrite(LED_PIN, LOW);
-//    delay(200);
-//    digitalWrite(LED_PIN, HIGH);
-//    delay(200);
-//    digitalWrite(LED_PIN, LOW);
-//    delay(1000);
+    digitalWrite(LED_PIN, HIGH);
+    delay(200);
+    digitalWrite(LED_PIN, LOW);
+    delay(200);
+    digitalWrite(LED_PIN, HIGH);
+    delay(200);
+    digitalWrite(LED_PIN, LOW);
+    delay(1000);
   }
-  ngood++;
-  Serial.println(ngood);}
   pinMode(SYNC_PIN, OUTPUT);
 
   Serial.print("Block size: ");
