@@ -30,6 +30,8 @@
 #define GYRO_SCALE 3 // 0=250dps, 1=500dps, 2=1000dps, 3=2000dps
 #define ACCEL_SCALE 1 // 0=2g, 1=4g, 2=8g, 3=16g
 
+const bool USE_MAGNETOMETER = true;
+
 // Pin to record
 const int SENSOR_PIN = A0;
 
@@ -346,6 +348,9 @@ bool checkWho(uint8_t deviceAddr, uint8_t regAddr, uint8_t correct) {
  * set it up to be an I2C slave
  */
 bool initAK8963(uint8_t MPU9250_ADDRESS) {
+  if (!USE_MAGNETOMETER)
+    return true;
+  
   // Tell MPU9250 to let us talk to AK8963 directly
   writeByte(MPU9250_ADDRESS, INT_PIN_CFG, 0x02); // enable pass thru when i2c master disabled
   writeByte(MPU9250_ADDRESS, USER_CTRL, B00000000); // turn off i2c master on mpu9250
