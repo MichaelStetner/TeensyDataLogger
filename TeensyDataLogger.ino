@@ -125,6 +125,9 @@ void setup() {
   Serial.begin(9600);
   delay(1000);
 
+  Wire1.begin();
+  Wire1.setDefaultTimeout(10000);  // ten milliseconds
+
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
@@ -132,6 +135,12 @@ void setup() {
 }
 
 void init() {
+  fileIsClosing = false;
+  fileIsComplete = false;
+  collectingData = false;
+  justSampled = false;
+  isSampling = false;
+  
   // Put all the buffers on the empty stack.
   for (int i = 0; i < BUFFER_BLOCK_COUNT; i++) {
     emptyStack[i] = &block[i - 1];
@@ -160,19 +169,26 @@ void init() {
   }
 
   // Initialize IMUs
-  Wire1.begin();
-  Wire1.setDefaultTimeout(10000);  // ten milliseconds
+  int ngood = 0;
+  while (true) {
   while (!(initMPU9250(MPU9250_ADDRESS_0) && initAK8963(MPU9250_ADDRESS_0) && initMPU9250(MPU9250_ADDRESS_1) && initAK8963(MPU9250_ADDRESS_1))) {
+//    Serial.print("Error code is ");
+//    Serial.println(Wire1.getError());
+//    Serial.print("Status is ");
+//    Serial.println(Wire1.status());
     Wire1.resetBus();
-    digitalWrite(LED_PIN, HIGH);
-    delay(200);
-    digitalWrite(LED_PIN, LOW);
-    delay(200);
-    digitalWrite(LED_PIN, HIGH);
-    delay(200);
-    digitalWrite(LED_PIN, LOW);
-    delay(1000);
+    ngood = 0;
+//    digitalWrite(LED_PIN, HIGH);
+//    delay(200);
+//    digitalWrite(LED_PIN, LOW);
+//    delay(200);
+//    digitalWrite(LED_PIN, HIGH);
+//    delay(200);
+//    digitalWrite(LED_PIN, LOW);
+//    delay(1000);
   }
+  ngood++;
+  Serial.println(ngood);}
   pinMode(SYNC_PIN, OUTPUT);
 
   Serial.print("Block size: ");
@@ -190,12 +206,8 @@ void init() {
   fullHead = 0;
   fullTail = 0;
   curBlock = 0;
-  fileIsClosing = false;
-  fileIsComplete = false;
-  collectingData = true;
-  justSampled = false;
-  isSampling = false;
   nextSampleMicros = micros() + sampleIntervalMicros;
+  collectingData = true;
 }
 //-----------------------------------------------------------------------------
 void loop() {
@@ -248,6 +260,7 @@ void yield() {
       putCurrentBlock();
     }
     collectingData = false;
+    isSampling = false;
     return;
   }
 
