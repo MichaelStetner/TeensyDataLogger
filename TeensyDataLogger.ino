@@ -262,10 +262,11 @@ void yield() {
     if (justSampled) {
       Serial.print("rate too fast");
       fileIsClosing = true;
+    } else {
+      acquireData(&curBlock->data[curBlock->count++]);
+      nextSampleMicros += sampleIntervalMicros;
+      justSampled = true;
     }
-    acquireData(&curBlock->data[curBlock->count++]);
-    nextSampleMicros += sampleIntervalMicros;
-    justSampled = true;
   } else {
     justSampled = false;
   }
