@@ -159,9 +159,9 @@ void init() {
     filename[5] = fileNum % 1000 / 100 + 48;
     filename[6] = fileNum % 100 / 10 + 48;
     filename[7] = fileNum % 10 + 48;
-    Serial.println(filename);
   }
-  
+  Serial.print("Writing to file ");
+  Serial.println(filename);
 
   
   if (!file.open(filename, O_RDWR | O_CREAT)) {
