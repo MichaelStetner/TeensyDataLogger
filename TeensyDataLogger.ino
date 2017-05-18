@@ -311,7 +311,6 @@ void acquireData(data_t* data) {
   data->time = millis();
   readBytes(MPU9250_ADDRESS_0, ACCEL_XOUT_H, IMU_DIM, &data->adc[0]);
   readBytes(MPU9250_ADDRESS_1, ACCEL_XOUT_H, IMU_DIM, &data->adc[IMU_DIM]);
-  data->adc[0] = analogRead(SENSOR_PIN);
   // Emit sync pulses at random
   myrand = random(10000);
   syncNow = (myrand < SYNC_RATE) && ((micros() - previousSyncMicros) > SYNC_REFRACTORY_MICROS);
