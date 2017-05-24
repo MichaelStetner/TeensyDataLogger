@@ -359,6 +359,9 @@ bool checkWho(uint8_t deviceAddr, uint8_t regAddr, uint8_t correct) {
 bool initAK8963(uint8_t MPU9250_ADDRESS) {
   if (!USE_MAGNETOMETER)
     return true;
+
+  Serial.print("Magnetometer for 0x");
+  Serial.println(MPU9250_ADDRESS, HEX);
   
   // Tell MPU9250 to let us talk to AK8963 directly
   writeByte(MPU9250_ADDRESS, INT_PIN_CFG, 0x02); // enable pass thru when i2c master disabled
