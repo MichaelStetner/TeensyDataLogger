@@ -169,7 +169,7 @@ void init() {
   }
 
   // Initialize IMUs
-  while (!(initMPU9250(MPU9250_ADDRESS_0) && initAK8963(MPU9250_ADDRESS_0) && initMPU9250(MPU9250_ADDRESS_1) && initAK8963(MPU9250_ADDRESS_1))) {
+  while (!(initMPU9250(MPU9250_ADDRESS_1) && initAK8963(MPU9250_ADDRESS_1) && initMPU9250(MPU9250_ADDRESS_0) && initAK8963(MPU9250_ADDRESS_0))) {
     Serial.print("Error code is ");
     Serial.println(Wire1.getError());
     Serial.print("Status is ");
