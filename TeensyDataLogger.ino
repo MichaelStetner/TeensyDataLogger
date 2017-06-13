@@ -491,7 +491,7 @@ uint8_t readByte(uint8_t address, uint8_t subAddress) {
    */
   Wire1.beginTransmission(address);
   Wire1.write(subAddress);
-  Wire1.endTransmission();
+  Wire1.endTransmission(I2C_NOSTOP);
   Wire1.requestFrom(address, (uint8_t) 1);
   if (Wire1.available()) {
     return Wire1.readByte();
@@ -516,7 +516,7 @@ uint8_t readBytes(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * 
    */
   Wire1.beginTransmission(address);
   Wire1.write(subAddress);
-  Wire1.endTransmission();
+  Wire1.endTransmission(I2C_NOSTOP);
   Wire1.requestFrom(address, count);
   for (int i=0; i<count; i++) {
     dest[i] = Wire1.read();
