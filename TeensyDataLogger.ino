@@ -32,6 +32,44 @@
 
 const bool USE_MAGNETOMETER = true;
 
+enum State {INITIALIZING, READY, SAMPLING, JUST_SAMPLED, CLEANING_UP, IDLING};
+/*
+ * State diagram:
+ * 
+ *                     +----------------------------------------+
+ *                     |                                        |
+ *                     |     ---> SAMPLING ---> JUST_SAMPLED ---+
+ *                     v   /
+ * INITIALIZING ---> READY 
+ *     ^                   \
+ *     |                     ---> CLEANING_UP ---> IDLING ---+
+ *     |                                                     |
+ *     +-----------------------------------------------------+
+ *     
+ *     
+ * Program starts in INITIALIZING state. While in this state, the program sets
+ * up the MPU-9250 devices, creates a new file for logging, and sets up the
+ * buffers. When evertyhing is ready, the program enters the READY state where
+ * it is ready to take a sample of data. Data samples are acquired every 5 ms.
+ * 
+ * When a sample is being acquired, the program enters the SAMPLING state,
+ * receives data from the MPU-9250 devices, and puts the data in the buffer.
+ * After receiving data, it enters the JUST_SAMPLED state. The JUST_SAMPLED
+ * state is used to make sure we are not falling behind our target interval of 
+ * 5 ms. We are falling behind if the time to collect the next sample has
+ * already passed when we enter the JUST_SAMPLED state. When we are falling 
+ * behind, the program enters the CLEANING_UP state. Otherwise, the program 
+ * immediately returns to the READY state.
+ * 
+ * Sampling continues in the READY, SAMPLING, JUST_SAMPLED loop until the button
+ * is pressed or it receives a message over Serial. Then, the program enters the
+ * CLEANING_UP state while it writes any remaining data from the buffer to the
+ * file. Once all data is written and the file is closed, the program enters the
+ * IDLING state. From here, it can go back to the INITIALIZING state to start 
+ * another file.
+*/
+State logger_state = INITIALIZING;
+
 // Pin to record
 const int SENSOR_PIN = A0;
 
@@ -114,11 +152,6 @@ uint32_t nextSampleMicros = 0;
 uint8_t syncNow;
 uint32_t previousSyncMicros = 0;
 unsigned long myrand;
-bool fileIsClosing = false;
-bool collectingData = false;
-bool fileIsComplete = true;
-bool isSampling = false;
-bool justSampled = false;
 
 //-----------------------------------------------------------------------------
 void setup() {
@@ -135,12 +168,7 @@ void setup() {
 }
 
 void init() {
-  fileIsClosing = false;
-  fileIsComplete = false;
-  collectingData = false;
-  justSampled = false;
-  isSampling = false;
-  
+  logger_state = INITIALIZING;
   // Put all the buffers on the empty stack.
   for (int i = 0; i < BUFFER_BLOCK_COUNT; i++) {
     emptyStack[i] = &block[i - 1];
@@ -202,24 +230,25 @@ void init() {
   fullTail = 0;
   curBlock = 0;
   nextSampleMicros = micros() + sampleIntervalMicros;
-  collectingData = true;
+  logger_state = READY;
 }
 //-----------------------------------------------------------------------------
 void loop() {
   init();
-  while (!fileIsComplete) {
+  while (logger_state != IDLING) {
     writeBuffers();
-    fileIsClosing = fileIsClosing || Serial.available() || (digitalRead(BUTTON_PIN) == LOW);
+    if (logger_state == READY && (Serial.available() || (digitalRead(BUTTON_PIN) == LOW)))
+      logger_state = CLEANING_UP;
   }
 }
 //-----------------------------------------------------------------------------
 void writeBuffers() {
   // Write the block at the tail of the full queue to the SD card
   if (fullHead == fullTail) { // full queue is empty
-    if (fileIsClosing) {
+    if (logger_state == CLEANING_UP) {
       file.close();
       Serial.println("File complete.");
-      fileIsComplete = true;
+      logger_state = IDLING;
     } else {
       yield(); // acquire data etc.
     }
@@ -243,49 +272,48 @@ void yield() {
   // for the SD card to do its thing, and the loop() function will call this
   // when there is nothing to be written to the SD card.
 
-  if (!collectingData || isSampling)
-    return;
-
-  isSampling = true;
-
-  // If file is closing, add the current buffer to the head of the full queue
-  // and skip data collection.
-  if (fileIsClosing) {
-    if (curBlock != 0) {
-      putCurrentBlock();
-    }
-    collectingData = false;
-    isSampling = false;
-    return;
+  switch (logger_state) {
+    case INITIALIZING:
+      break;
+    case READY:
+      // If it's time, record one data sample.
+      if (micros() >= nextSampleMicros) {
+        logger_state = SAMPLING;
+        // If we don't have a buffer for data, get one from the top of the empty
+        // stack.
+        if (curBlock == 0) {
+          curBlock = getEmptyBlock();
+        }
+        acquireData(&curBlock->data[curBlock->count++]);
+        nextSampleMicros += sampleIntervalMicros;
+        // If the current buffer is full, move it to the head of the full queue. We
+        // will get a new buffer at the beginning of the next yield() call.
+        if (curBlock->count == DATA_DIM) {
+          putCurrentBlock();
+        }
+        logger_state = JUST_SAMPLED;
+      }
+      break;
+    case SAMPLING:
+      break;
+    case JUST_SAMPLED:
+      if (micros() >= nextSampleMicros) {
+        Serial.println("rate too fast");
+        logger_state = CLEANING_UP;
+      } else {
+        logger_state = READY;
+      }
+      break;
+    case CLEANING_UP:
+      // If file is closing, add the current buffer to the head of the full queue
+      // and skip data collection.
+      if (curBlock != 0) {
+        putCurrentBlock();
+      }
+      break;
+    case IDLING:
+      break;
   }
-
-  // If we don't have a buffer for data, get one from the top of the empty
-  // stack.
-  if (curBlock == 0) {
-    curBlock = getEmptyBlock();
-  }
-
-  // If it's time, record one data sample.
-  if (micros() >= nextSampleMicros) {
-    if (justSampled) {
-      Serial.print("rate too fast");
-      fileIsClosing = true;
-    } else {
-      acquireData(&curBlock->data[curBlock->count++]);
-      nextSampleMicros += sampleIntervalMicros;
-      justSampled = true;
-    }
-  } else {
-    justSampled = false;
-  }
-
-  // If the current buffer is full, move it to the head of the full queue. We
-  // will get a new buffer at the beginning of the next yield() call.
-  if (curBlock->count == DATA_DIM) {
-    putCurrentBlock();
-  }
-
-  isSampling = false;
 }
 //-----------------------------------------------------------------------------
 block_t* getEmptyBlock() {
