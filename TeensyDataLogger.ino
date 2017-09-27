@@ -214,6 +214,17 @@ void init() {
   }
   pinMode(SYNC_PIN, OUTPUT);
 
+  // Set the seed of the random number generator. Without this, the sequence of 
+  // random numbers will be the same every time. To make a truly random seed,
+  // fill it with measurements of the least significant bit from a gyro.
+  int seed = 0;
+  for (int i=0; i<16; i++) {
+    byte val = readByte(MPU9250_ADDRESS_1, GYRO_XOUT_L);
+    seed = seed + ((val & 0x01) << i);
+    delay(10);
+  }
+  randomSeed(seed);  
+
   Serial.print("Block size: ");
   Serial.println(BUF_DIM);
   Serial.print("Record size: ");
